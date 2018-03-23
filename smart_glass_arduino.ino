@@ -1,8 +1,16 @@
 #include <ESP8266WiFi.h>
 #include <ArduinoJson.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
+#include <time.h>
 #include "stationCredentials.h"
 
 WiFiClient client;
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP);
+
+float timezone=6.5;
+int dst=0;
 
 String result;
 String weatherLocation="";
@@ -13,35 +21,34 @@ float temperature=0;
 float humidity=0;
 float pressure=0;
 
-int counter=30;
+int counter=300;
 
 void setup() {
   delay(1000);
   Serial.begin(115200);
   WiFi.begin(sSID, PASSWORD);
-  Serial.print ("Connecting");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
-    Serial.print(".");
-  }
-  Serial.println("");
-  Serial.println("WIFI has been Connected");
-  Serial.print("IP Address: ");
-  Serial.println(WiFi.localIP());
-
+  displayWifiStatus();
+  //timeClient.begin();
+  configTime(6.5*3600, dst*0, "pool.ntp.org", "time.nist.gov");
 }
 
 void loop() {
-  //display
-  if(counter==30){
+  //updating time
+  delay(1000);
+  //timeClient.update();
+  time_t now=time(nullptr);
+  Serial.println(ctime(&now));
+  //displayCurrentTime();
+  
+  //updating weather data
+  if(counter==300){
+    //pull from server in 5 minutes interval
     counter=0;
-    delay(1000);
     Serial.println("New");
     getWeatherData();
-    displayWeather();
+    displayCurrentWeather();
   }else{
     counter++;
-    delay(10000);
     Serial.println("Old");
 //    displayPreviousWeather( weatherLocation,
 //                        country,mainCondition,weatherDescription,
@@ -105,7 +112,18 @@ void getWeatherData(){
 
 }
 
-void displayWeather(){
+void displayWifiStatus(){
+  Serial.print ("Connecting");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.println("WIFI has been Connected");
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());
+}
+void displayCurrentWeather(){
   Serial.print("Location: ");
   Serial.print(weatherLocation);
   Serial.print(", ");
@@ -143,5 +161,10 @@ void displayPreviousWeather(String location,String country,String mainCondition,
   Serial.println(humidity);
   Serial.print("Pressure: ");
   Serial.println(pressure);
+}
+
+void displayCurrentTime(){
+  Serial.println(timeClient.getFormattedTime());
+
 }
 
