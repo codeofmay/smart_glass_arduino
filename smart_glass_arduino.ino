@@ -49,7 +49,7 @@ void loop() {
     //pull from server in every 5 minutes
     counter = 0;
     Serial.println("New");
-    getWeatherDataFromWUnderGround(WUNDERGROUND_FORECAST_REQ, "forecast");
+    getForecastDataFromWUnderGround(WUNDERGROUND_FORECAST_REQ, "forecast");
     displayCurrentWeather();
   } else {
     counter++;
@@ -232,6 +232,113 @@ bool extractCurrentFields(char *json)
   return true;
 }
 
+void getForecastDataFromWUnderGround(const char *request, String type) {
+  //connect api
+  if (client.connect(WUNDERGROUND_SERVER, 80)) {
+    client.print(request);
+    client.flush();
+  } else {
+    Serial.println("connection failed");
+    Serial.println();
+  }
+  bool skip_headers = true;
+
+
+  while (client.connected() || client.available()) {
+    if (skip_headers) {
+      String aLine = client.readStringUntil('\n');
+      //Serial.println(aLine);
+      // Blank line denotes end of headers
+      if (aLine.length() <= 1) {
+        skip_headers = false;
+      }
+    }
+    else {
+      String line = client.readStringUntil('\r');
+      if (line != " ") {
+        result += line;
+      }
+      delay(1);
+    }
+  }
+
+  client.stop();
+  result.replace('[', ' ');
+  result.replace(']', ' ');
+  result.replace(" ", "");
+  result.trim();
+
+  Serial.println(result);
+  char jsonArray[result.length() + 1];
+  try{
+  result.toCharArray(jsonArray, sizeof(jsonArray));
+  }catch(Exception e){
+    e.print();
+  }
+  //StaticJsonBuffer<3*1024> jsonBuffer;
+  //JsonObject &root = jsonBuffer.parseObject(result);
+  //Serial.println(jsonArray);
+  //extractForecastFields(jsonArray);
+
+  //  //convert string to charArray
+  //  char jsonArray[result.length() + 1];
+  //  result.toCharArray(jsonArray, sizeof(jsonArray));
+  //  jsonArray[result.length() + 1] = '\0';
+  //
+  //  //convert charArray to JsonObject
+  //  StaticJsonBuffer<1024> jsonBuffer;
+  //  JsonObject &root = jsonBuffer.parseObject(jsonArray);
+  //  if (!root.success()) {
+  //    Serial.println("Data Passing from JsonArray to JsonObject failed");
+  //  }
+
+  //  int respLen = 0;
+  //  static char respBuf[4096];
+  //  bool skip_headers = true;
+  //  while (client.connected() || client.available()) {
+  //    if (skip_headers) {
+  //      String aLine = client.readStringUntil('\n');
+  //      //Serial.println(aLine);
+  //      // Blank line denotes end of headers
+  //      if (aLine.length() <= 1) {
+  //        skip_headers = false;
+  //      }
+  //    }
+  //    else {
+  //      int bytesIn;
+  //      bytesIn = client.read((uint8_t *)&respBuf[respLen], sizeof(respBuf) - respLen);
+  //      //Serial.print(F("bytesIn ")); Serial.println(bytesIn);
+  //      if (bytesIn > 0) {
+  //        respLen += bytesIn;
+  //        if (respLen > sizeof(respBuf)) respLen = sizeof(respBuf);
+  //      }
+  //      else if (bytesIn < 0) {
+  //        Serial.print(F("read error "));
+  //        Serial.println(bytesIn);
+  //      }
+  //    }
+  //    delay(1);
+  //  }
+  //  client.stop();
+  //
+  //  if (respLen >= sizeof(respBuf)) {
+  //    Serial.print(F("respBuf overflow "));
+  //    Serial.println(respLen);
+  //    delay(DELAY_ERROR);
+  //    return;
+  //  }
+  //  // Terminate the C string
+  //  respBuf[respLen++] = '\0';
+  //  //  Serial.print(F("respLen "));
+  //  //  Serial.println(respLen);
+  //
+  //  if (type == "current") {
+  //    extractCurrentFields(respBuf);
+  //  } else if (type == "forecast") {
+  //    extractForecastFields(respBuf);
+  //  }
+}
+
 void extractForecastFields(char *json) {
   StaticJsonBuffer<3 * 1024> jsonBuffer;
 
@@ -253,30 +360,29 @@ void extractForecastFields(char *json) {
   JsonObject& thirdDay = forecast["3"];
 
   //first day forecast
-  char weekDay=firstDay["date"]["weekday_short"];
-  float max_temp=firstDay["high"]["celsius"];
-  float min_temp=firstDay["low"]["celsius"];
-  char condition=firstDay["conditions"];
-  char icon=firstDay["icon_url"];
-  
+  char weekDay = firstDay["date"]["weekday_short"];
+  float max_temp = firstDay["high"]["celsius"];
+  float min_temp = firstDay["low"]["celsius"];
+  char condition = firstDay["conditions"];
+  char icon = firstDay["icon_url"];
+
   //second day forecast
   //first day forecast
-  char weekDay1=secondDay["date"]["weekday_short"];
-  float max_temp1=secondDay["high"]["celsius"];
-  float min_temp1=secondDay["low"]["celsius"];
-  char condition1=secondDay["conditions"];
-  char icon1=secondDay["icon_url"];
-  
-  //thirday forecast
-  char weekDay2=thirdDay["date"]["weekday_short"];
-  float max_temp2=thirdDay["high"]["celsius"];
-  float min_temp2=thirdDay["low"]["celsius"];
-  char condition2=thirdDay["conditions"];
-  char icon2=thirdDay["icon_url"];
+  char weekDay1 = secondDay["date"]["weekday_short"];
+  float max_temp1 = secondDay["high"]["celsius"];
+  float min_temp1 = secondDay["low"]["celsius"];
+  char condition1 = secondDay["conditions"];
+  char icon1 = secondDay["icon_url"];
+  displayForecastWeather(weekDay, max_temp, min_temp, condition, icon);
 
-  displayForecastWeather(weekDay,max_temp,min_temp,condition,icon);
-  displayForecastWeather(weekDay1,max_temp1,min_temp1,condition1,icon1);
-  displayForecastWeather(weekDay2,max_temp2,min_temp2,condition2,icon2);
+  //thirday forecast
+  char weekDay2 = firstDay["date"]["weekday_short"];
+  float max_temp2 = firstDay["high"]["celsius"];
+  float min_temp2 = firstDay["low"]["celsius"];
+  char condition2 = firstDay["conditions"];
+  char icon2 = firstDay["icon_url"];
+
+  displayForecastWeather(weekDay, max_temp, min_temp, condition, icon);
 }
 
 void displayWifiStatus() {
@@ -341,13 +447,7 @@ void displayCurrentWeather() {
   Serial.println();
 }
 
-void displayForecastWeather(char weekDay,float max_temp,float min_temp,char condition,char icon){
-  Serial.println(weekDay);
-  Serial.println(condition);
-  Serial.println(icon);
-  Serial.println(max_temp);
-  Serial.print(" / ");
-  Serial.println(min_temp);
-  Serial.println();
+void displayForecastWeather(char weekDay, float max_temp, float min_temp, char condition, char icon) {
+  //first day forecast
 }
 
